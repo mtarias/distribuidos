@@ -1,0 +1,209 @@
+import java.io.Serializable;
+import java.rmi.*;
+import java.rmi.registry.LocateRegistry;
+import java.rmi.registry.Registry;
+import java.rmi.server.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+
+public class ObjetoRemotoCliente extends UnicastRemoteObject implements InterfazRemotaCliente{
+    private HashMap<Integer,InterfazRemotaCliente> seguidores;
+    private HashMap<Integer,InterfazRemotaCliente> alosquesigo;
+    private HashMap<Integer,InterfazRemotaCliente> conectados;
+    private int totalAlosquesigo;
+    private int totalSeguidores;
+    private int totalConectados;
+    private String myname;
+    private int id;
+    private HashMap<String,String> mensajes;
+	
+	public static void main(String args[]){ 
+    	
+    }
+    public ObjetoRemotoCliente(String name) throws RemoteException{
+    	seguidores = new HashMap<Integer, InterfazRemotaCliente>();
+    	alosquesigo = new HashMap<Integer, InterfazRemotaCliente>();
+    	conectados = new HashMap<Integer, InterfazRemotaCliente>();
+    	mensajes = new HashMap<String, String>();
+    	myname = name;
+    }    
+	
+	public void setSeguidor(String name) throws RemoteException, NotBoundException{
+		try{
+    		System.out.println("Llego un nuevo seguidor!!!");
+    		Registry registry = LocateRegistry.getRegistry(1989);
+    		InterfazRemotaCliente orc = null;
+    		orc =(InterfazRemotaCliente) registry.lookup(name);
+    		seguidores.put(totalSeguidores,orc);
+    		totalSeguidores++;
+    	}
+		catch(Exception e){
+			
+		}
+		
+	}
+	@Override
+	public void setAlQueSigo(String name) throws RemoteException, NotBoundException {
+		System.out.println("Generando conección entre clientes\n");
+		Registry registry = LocateRegistry.getRegistry(1989);
+    	 InterfazRemotaCliente orc =(InterfazRemotaCliente) registry.lookup(name);
+        alosquesigo.put(totalAlosquesigo,orc);
+        totalAlosquesigo++;
+        System.out.println("Se genera la conexión\n");
+        orc.setSeguidor(myname);
+		
+	}
+	
+	public void sendSeguidores(String myname,String msn)throws RemoteException{
+		for(int i=0;i<seguidores.size();i++){
+			seguidores.get(i).save(myname,msn);
+		}
+	}
+	
+	public void save(String myname,String msn)throws RemoteException{
+		mensajes.put(myname, msn);
+	}
+	
+	public void observarSeguidos(String myname)throws RemoteException{
+		if(alosquesigo.size()==0){
+			System.out.println("No esta siguiendo a nadie");
+		}
+		else{
+			System.out.print("Las personas que sigo son:");
+			for(int i=0;i<alosquesigo.size();i++){
+				System.out.println(alosquesigo.get(i).getName());
+			}
+		}
+	}
+	
+	public String getName() throws RemoteException{
+		return myname;
+	}
+	
+	public void verMensajes() throws RemoteException{
+		
+		Iterator it = mensajes.entrySet().iterator();
+		if(!it.hasNext()){
+			System.out.println("Usted no está siguiendo a nadie en este minuto");
+		}
+		else{
+			while (it.hasNext()) {
+				Map.Entry e = (Map.Entry)it.next();
+				System.out.println("Mensaje de: "+e.getKey());
+				System.out.println(e.getValue());
+			}
+		}
+	}
+	
+	public void setClienteRed(String name)throws RemoteException, NotBoundException{
+		System.out.println("Generando conección entre clientes\n");
+		Registry registry = LocateRegistry.getRegistry(1989);
+    	 InterfazRemotaCliente orc =(InterfazRemotaCliente) registry.lookup(name);
+        conectados.put(totalConectados,orc);
+        totalConectados++;
+        System.out.println("Se generó la conexión\n");
+        orc.recibirSolicitud(myname);
+	}
+	
+	public void recibirSolicitud(String name) throws RemoteException{
+		try{
+    		Registry registry = LocateRegistry.getRegistry(1989);
+    		InterfazRemotaCliente orc = null;
+    		orc =(InterfazRemotaCliente) registry.lookup(name);
+    		conectados.put(totalConectados,orc);
+    		totalConectados++;
+    		System.out.println(name+" se conectó contigo!!!");
+    	}
+		catch(Exception e){
+			
+		}
+	}
+	
+	public void send(String myname,String msn) throws RemoteException, NotBoundException{
+		ArrayList<String> senders = new ArrayList<String>();
+		senders.add(myname);
+		Iterator it = conectados.entrySet().iterator();
+		if(!it.hasNext()){
+			System.out.println("Usted no esta conectado con alguien");
+		}
+		else{
+			System.out.println("Enviando mensajes ...");
+			
+			while (it.hasNext()){
+				Map.Entry e = (Map.Entry)it.next();
+				InterfazRemotaCliente ir = (InterfazRemotaCliente)e.getValue();
+				ir.receive(senders,myname,msn);
+			}
+		}
+	}
+	
+	public void receive(ArrayList<String> mensajeros,String mensajero,String msn) throws RemoteException{
+	    save(mensajero,msn);
+		
+		System.out.println("Mensaje recibido de "+mensajero);
+		mensajeros.add(myname);
+		Iterator it = conectados.entrySet().iterator();
+		
+		while (it.hasNext()){
+			Map.Entry e = (Map.Entry)it.next();
+			InterfazRemotaCliente ir = (InterfazRemotaCliente)e.getValue();
+			boolean b = true;
+			for (String s : mensajeros){
+				if(!(ir.getName().equals(s))){
+					b = false;
+				}
+			}
+			if(b){
+				ir.receive(mensajeros,myname,msn);
+			}
+		}
+	}
+	
+	public void buscarConectados() throws RemoteException{
+		ArrayList<InterfazRemotaCliente>cn = new ArrayList<InterfazRemotaCliente>();
+		Iterator it = conectados.entrySet().iterator();
+		
+		cn.add(this);
+		while (it.hasNext()){
+			Map.Entry e = (Map.Entry)it.next();
+			InterfazRemotaCliente ir = (InterfazRemotaCliente)e.getValue();
+			cn.add(ir);
+		}
+		
+		Iterator it2 = conectados.entrySet().iterator();
+		
+		while (it2.hasNext()){
+			Map.Entry e = (Map.Entry)it2.next();
+			InterfazRemotaCliente ir = (InterfazRemotaCliente)e.getValue();
+			cn = ir.buscar(cn);
+		}
+		System.out.println("Los usuarios que estan conectados a la red son:");
+		for(InterfazRemotaCliente ir2 : cn){
+			String s = ir2.getName();
+			System.out.println(s);
+		}
+	}
+	
+	public ArrayList<InterfazRemotaCliente> buscar(ArrayList<InterfazRemotaCliente>cn) throws RemoteException{
+		Iterator it = conectados.entrySet().iterator();
+		while (it.hasNext()){
+			Map.Entry e = (Map.Entry)it.next();
+			InterfazRemotaCliente ir = (InterfazRemotaCliente)e.getValue();
+			boolean b = true;
+			for (InterfazRemotaCliente s : cn){
+				System.out.println(s.getName());
+				if((ir.getName().equals(s.getName()))){
+					b = false;
+				}
+			}
+			if(b){
+				cn = ir.buscar(cn);
+			}
+		}
+		return cn;
+		
+	}
+}

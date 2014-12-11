@@ -1,0 +1,9 @@
+rpcgen -C diccionario.x
+
+g++ -o client diccionario_xdr.c diccionario_clnt.c client.cpp
+
+g++ -o server diccionario_xdr.c diccionario_svc.c server.cpp
+
+sudo ./server
+
+sudo ./client locahost 1 2
